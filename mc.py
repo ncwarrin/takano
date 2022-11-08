@@ -480,161 +480,6 @@ class Spin_System:
         return np.conj(self.hessian_matrix(X, Y)@J_in)
 
 
-#class Flow:
-#    # Class to implement flows
-#    def __init__(self, flow_time, flow_steps, spin_syst):
-#        self.syst = spin_syst
-#        self.flow_time = flow_time
-#        self.flow_steps = flow_steps
-#
-#    def simple_step(self, Z_in, F_in, J_in, dt):
-#        Z_out = Z_in + dt * self.syst.dzdt(0, Z_in, F_in)
-#        F_out = F_in + dt * self.syst.dzdt(1, Z_in, F_in)
-#        J_out = J_in + dt * self.syst.dJdt(Z_in, F_in, J_in)
-#        return (Z_out, F_out, J_out)
-#
-#
-#    # Single step for 4th order runge-kutta
-#    def rk4_step(self, Z_in, F_in, J_in, dt):
-#        k1_z = self.syst.dzdt(0, Z_in, F_in)
-#        k1_f = self.syst.dzdt(1, Z_in, F_in)
-#        k1_J = self.syst.dJdt(Z_in, F_in, J_in)
-#       
-#        k2_z = self.syst.dzdt(0, Z_in+dt/2*k1_z, F_in+dt/2*k1_f)
-#        k2_f = self.syst.dzdt(1, Z_in+dt/2*k1_z, F_in+dt/2*k1_f)
-#        k2_J = self.syst.dJdt(Z_in+dt/2*k1_z, F_in+dt/2*k1_f, J_in+dt/2*k1_J)
-#       
-#        k3_z = self.syst.dzdt(0, Z_in+dt/2*k2_z, F_in+dt/2*k2_f)
-#        k3_f = self.syst.dzdt(1, Z_in+dt/2*k2_z, F_in+dt/2*k2_f)
-#        k3_J = self.syst.dJdt(Z_in+dt/2*k2_z, F_in+dt/2*k2_f, J_in+dt/2*k2_J)
-#       
-#        k4_z = self.syst.dzdt(0, Z_in+dt*k3_z, F_in+dt*k3_f)
-#        k4_f = self.syst.dzdt(1, Z_in+dt*k3_z, F_in+dt*k3_f)
-#        k4_J = self.syst.dJdt(Z_in+dt*k3_z, F_in+dt*k3_f, J_in+dt*k3_J)
-#
-#        Z_out = Z_in + dt/6*(k1_z+2*k2_z+2*k3_z+k4_z)
-#        F_out = F_in + dt/6*(k1_f+2*k2_f+2*k3_f+k4_f)
-#        J_out = J_in + dt/6*(k1_J+2*k2_J+2*k3_J+k4_J)
-#        return (Z_out, F_out, J_out)
-#
-#
-#    # Adaptive flow, checking that flow is increasing the real part of its action and not drifting in imaginary part too much
-#    def adaptive_flow(self, Z_in, F_in):
-#        t_count = 0
-#        dt_base = self.flow_time/self.flow_steps
-#        dt = dt_base
-#        Z = Z_in
-#        F = F_in
-#        J = np.eye(2*self.syst.T*self.syst.N, 2*self.syst.T*self.syst.N)
-#        while t_count<self.flow_time:
-#            #Z_flow, F_flow, J_flow = self.simple_step(Z, F, J, dt) #self.rk4_step(Z, F, J, dt)#
-#            Z_flow, F_flow, J_flow = self.rk4_step(Z, F, J, dt)#
-#            if self.syst.action(Z_flow, F_flow).real >= self.syst.action(Z, F).real and np.abs(self.syst.action(Z_flow, F_flow).imag - self.syst.action(Z, F).imag)<0.2:
-#                Z = Z_flow
-#                F = F_flow
-#                J = J_flow
-#                t_count += dt
-#            elif dt_base/dt > 10**10:
-#                print("STUCK AT TIME {}".format(t_count))
-#                return (Z, F, J)
-#            else:
-#                print(self.syst.action(Z, F))
-#                print(self.syst.action(Z_flow, F_flow))
-#                print("Halving at beta = {}".format(self.syst.beta))
-#                dt = dt/2
-#        return (Z, F, J)
-#
-#
-
-# QMC with all parameters adjustable
-# first performs num_thermalization thermalization steps, then num_samples actual samples
-# syst and flow give the information of the actual system and flow, it starts at starting_X and starting_Y,
-# takes the expectation of expector, and each step is normally distributed with standard deviation of drift_const
-def QMC(num_samples, num_thermalization, syst, flow, starting_Z, starting_F, expector, dz, dphi):
-
-    total_MC_steps = num_samples+num_thermalization
-
-    Z = starting_Z
-    F = starting_F
-    Z_prime, F_prime, J = flow.adaptive_flow(Z, F)
-
-    accepted = 0
-    eff_action = syst.action(Z_prime, F_prime) - np.log(np.linalg.det(J))
-    real_eff_acts = []
-    im_eff_acts = []
-    H_measurements = []
-
-    for i in range(total_MC_steps):
-
-        tic=time.perf_counter() #start timer for current step
-        print(">> {}".format(i)) #print current step
-
-        delta_Z = np.random.normal(scale = dz, size = Z.shape) #random dZ
-        delta_F = np.random.normal(scale = dphi, size = F.shape) #random dF
-       
-        #gotta make sure these dudes stay within their compact interval
-        Z_next = Z + delta_Z
-        F_next = F + delta_F
-
-        for x in range(syst.N):
-            for t in range(syst.T):
-                if Z_next[x,t] >  1:
-                    ep = Z_next[x,t] - 1
-                    Z_next[x,t] = -1 + ep
- 
-                if Z_next[x,t] < -1:
-                    ep = -1 - Z_next[x,t]
-                    Z_next[x,t] = 1 - ep 
-
-                if F_next[x,t] > 2*np.pi:
-                    ep = F_next[x,t] - 2*np.pi
-                    F_next[x,t] = -2*np.pi + ep
-
-                if F_next[x,t] < -2*np.pi:
-                    ep = - 2*np.pi - F_next[x,t]
-                    F_next[x,t] = 2*np.pi - ep
-
-        Z_next_prime, F_next_prime, J_next = flow.adaptive_flow(Z_next, F_next)
-        eff_action_next = syst.action(Z_next_prime, F_next_prime) - np.log(np.linalg.det(J_next)) #eff_action = S' - lndet J
- 
-        if np.random.uniform() < min(1, np.exp(-(eff_action_next.real - eff_action.real))):
-            Z = Z_next
-            F = F_next
-            Z_prime = Z_next_prime
-            F_prime = F_next_prime
-            eff_action = eff_action_next
-            accepted += 1
-
-        if i >= num_thermalization:
-            ham_avg = 0
-            for t in range(syst.T):
-                ham_avg += (1/syst.T)*expector(Z_prime[:, t], F_prime[:, t]) #average H_cl over timeslices
-        
-            real_eff_acts.append(eff_action.real)
-            im_eff_acts.append(eff_action.imag)
-            H_measurements.append(ham_avg)
-            sz = syst.observable(Z_prime,F_prime)/syst.S[0]
-
-            print("Acceptance rate: {}".format( accepted/(i+1) ))
-            print("H:", ham_avg.real, ham_avg.imag)
-            print("ACTION:", eff_action.real, eff_action.imag)
-            print("SZ:",sz.real,sz.imag)
-            print("Z:",Z)
-            print("MeanZ:",np.real(Z.mean()) )
-            print("F:",F)
-
-
-        toc=time.perf_counter()
-
-        print("Time elapsed: %0.4f seconds" %(toc-tic))
- 
-    print("Acceptance rate: {}".format(accepted/total_MC_steps))
-    
-    real_eff_acts = np.array(real_eff_acts)
-    im_eff_acts = np.array(im_eff_acts)
-    hamiltonians = np.array(H_measurements)
-
-    
 class Flow:
     # Class to implement flows
     def __init__(self, flow_time, flow_steps, spin_syst, tag):
@@ -731,6 +576,99 @@ class Flow:
                 dt = dt/2
         return (X, Y, J)
 
+
+
+
+# QMC with all parameters adjustable
+# first performs num_thermalization thermalization steps, then num_samples actual samples
+# syst and flow give the information of the actual system and flow, it starts at starting_X and starting_Y,
+# takes the expectation of expector, and each step is normally distributed with standard deviation of drift_const
+
+def QMC(num_samples, num_thermalization, syst, flow, starting_Z, starting_F, expector, dz, dphi):
+
+    total_MC_steps = num_samples+num_thermalization
+
+    Z = starting_Z
+    F = starting_F
+    Z_prime, F_prime, J = flow.adaptive_flow(Z, F)
+
+    accepted = 0
+    eff_action = syst.action(Z_prime, F_prime) - np.log(np.linalg.det(J))
+    real_eff_acts = []
+    im_eff_acts = []
+    H_measurements = []
+
+    for i in range(total_MC_steps):
+
+        tic=time.perf_counter() #start timer for current step
+        print(">> {}".format(i)) #print current step
+
+        delta_Z = np.random.normal(scale = dz, size = Z.shape) #random dZ
+        delta_F = np.random.normal(scale = dphi, size = F.shape) #random dF
+       
+        #gotta make sure these dudes stay within their compact interval
+        Z_next = Z + delta_Z
+        F_next = F + delta_F
+
+        for x in range(syst.N):
+            for t in range(syst.T):
+                if Z_next[x,t] >  1:
+                    ep = Z_next[x,t] - 1
+                    Z_next[x,t] = -1 + ep
+ 
+                if Z_next[x,t] < -1:
+                    ep = -1 - Z_next[x,t]
+                    Z_next[x,t] = 1 - ep 
+
+                if F_next[x,t] > 2*np.pi:
+                    ep = F_next[x,t] - 2*np.pi
+                    F_next[x,t] = -2*np.pi + ep
+
+                if F_next[x,t] < -2*np.pi:
+                    ep = - 2*np.pi - F_next[x,t]
+                    F_next[x,t] = 2*np.pi - ep
+
+        Z_next_prime, F_next_prime, J_next = flow.adaptive_flow(Z_next, F_next)
+        eff_action_next = syst.action(Z_next_prime, F_next_prime) - np.log(np.linalg.det(J_next)) #eff_action = S' - lndet J
+ 
+        if np.random.uniform() < min(1, np.exp(-(eff_action_next.real - eff_action.real))):
+            Z = Z_next
+            F = F_next
+            Z_prime = Z_next_prime
+            F_prime = F_next_prime
+            eff_action = eff_action_next
+            accepted += 1
+
+        if i >= num_thermalization:
+            ham_avg = 0
+            for t in range(syst.T):
+                ham_avg += (1/syst.T)*expector(Z_prime[:, t], F_prime[:, t]) #average H_cl over timeslices
+        
+            real_eff_acts.append(eff_action.real)
+            im_eff_acts.append(eff_action.imag)
+            H_measurements.append(ham_avg)
+            sz = syst.observable(Z_prime,F_prime)/syst.S[0]
+
+            print("Acceptance rate: {}".format( accepted/(i+1) ))
+            print("H:", ham_avg.real, ham_avg.imag)
+            print("ACTION:", eff_action.real, eff_action.imag)
+            print("SZ:",sz.real,sz.imag)
+            print("Z:",Z)
+            print("MeanZ:",np.real(Z.mean()) )
+            print("F:",F)
+
+
+        toc=time.perf_counter()
+
+        print("Time elapsed: %0.4f seconds" %(toc-tic))
+ 
+    print("Acceptance rate: {}".format(accepted/total_MC_steps))
+    
+    real_eff_acts = np.array(real_eff_acts)
+    im_eff_acts = np.array(im_eff_acts)
+    hamiltonians = np.array(H_measurements)
+
+    
     
 
 
@@ -799,109 +737,6 @@ def main():
  
     #print inputs  
     print("[theory, beta, Nt, coupling, ncfgs, ntherm, dz, dphi, Tflow] = [{}, {}, {}, {}, {}, {}, {}, {}, {}]".format(params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8]))
-
-
-#begin berry phase tests
-    if 0 == 1:
-    
-        N = 1
-        T = 3
-        S = [1/2]
-     
-        S=nb.typed.List(S) #convert to numba list
-        ham = Single_Spin_Hamiltonian(N, S, coupling) #1, 1) 
-     
-        Z = np.zeros((N, T), dtype = np.complex128)
-        F = np.zeros((N, T), dtype = np.complex128)
-    
-        Z[0,0], Z[0,1], Z[0,2] = 0.1, 0.33, 0.7
-        F[0,0], F[0,1], F[0,2] = 0.4, 0.13, 0.9
-    
-        print("Z = ",Z)
-        print("F = ",F)
-    
-    
-        Lambda = 0
-        syst = Spin_System(N, T, S, beta, coupling, ham, Lambda)
-    
-        #Berry phase test
-        print("\n")
-        print("Berry phase = ",syst.berry_phase(Z, F))
-        print("\n")
-
-        print("Begin z derivatives: \n")
-        ZorF = 0
-        x=0
-        for t in range(T):
-            tmp = syst.berry_phase_derivative(ZorF, x, t, Z, F)
-            print("dS_BP/d x({} {}) = {}".format(x,t,tmp))
-
-        print("Begin th derivatives: \n")
-        ZorF = 1
-        x=0
-        for t in range(T):
-            tmp = syst.berry_phase_derivative(ZorF, x, t, Z, F)
-            print("dS_BP/d x({} {}) = {}".format(x,t,tmp))
-
-        print("\n")
-
-
-
-        print("Begin zz derivatives: \n")
-        ZorF_1 = 0
-        ZorF_2 = 0
-        xpp = 0
-        xp = 0
-        for tpp in range(T):
-            for tp in range(T):
-                tmp = syst.berry_phase_second_derivative(ZorF_1, ZorF_2, xpp, xp, tpp, tp, Z, F)
-                print("ddS_BP/dz({}{})dz({}{}) = {}".format(xpp,tpp,xp,tp,tmp))
-
-
-        print("Begin fz derivatives: \n")
-        ZorF_1 = 1
-        ZorF_2 = 0
-        xpp = 0
-        xp = 0
-        for tpp in range(T):
-            for tp in range(T):
-                tmp = syst.berry_phase_second_derivative(ZorF_1, ZorF_2, xpp, xp, tpp, tp, Z, F)
-                print("ddS_BP/df({}{})dz({}{}) = {}".format(xpp,tpp,xp,tp,tmp))
-
-        print("Begin zf derivatives: \n")
-        ZorF_1 = 0
-        ZorF_2 = 1
-        xpp = 0
-        xp = 0
-        for tpp in range(T):
-            for tp in range(T):
-                tmp = syst.berry_phase_second_derivative(ZorF_1, ZorF_2, xpp, xp, tpp, tp, Z, F)
-                print("ddS_BP/dz({}{})df({}{}) = {}".format(xpp,tpp,xp,tp,tmp))
-
-
-
-        print("Begin ff derivatives: \n")
-        ZorF_1 = 1
-        ZorF_2 = 1
-        xpp = 0
-        xp = 0
-        for tpp in range(T):
-            for tp in range(T):
-                tmp = syst.berry_phase_second_derivative(ZorF_1, ZorF_2, xpp, xp, tpp, tp, Z, F)
-                print("ddS_BP/df({}{})df({}{}) = {}".format(xpp,tpp,xp,tp,tmp))
-
-        #berry_phase_derivative_helper(S,T, ZorF, x, t, Z, F)
-        return 0
-
-#RESULT: Berry Phase agrees with mathematica implementation
-#RESULT: First derivative of Berry phase agrees with Mathematica
-#RESULT: All second derivatives agree with Mathematica
-#end berry phase tests
-
-
-
-
-
 
 
     #run the MC
