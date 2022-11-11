@@ -157,27 +157,10 @@ def main():
     #print inputs  
     print("[theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dth, dphi, Tflow] = [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]".format(params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8],params[9],params[10]))
 
-
+    #initalize the fields
     T = np.ones((Nx, Nt), dtype = np.complex128) #represents the theta variables
     F = np.ones((Nx, Nt), dtype = np.complex128) #represents the phi   variables
 
-    #for x in range(Nx):
-    #    for t in range(Nt):
-    #        T[x,t] = x + 2*t + 1
-    #        F[x,t] = 3*(x+1) + 5*(t+1) + 2
-
-    #print(T)
-    #print(F)
-
-    #Tp, Fp = Perturb(T,F,dth,dphi)
-
-    #print(Tp)
-    #print(Fp)
-
-    #act = Action(T,F,beta,coupling,s)
-    #print(act)
-
-    #return 0
 
     DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dth, dphi, Tflow)
 
