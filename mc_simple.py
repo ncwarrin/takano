@@ -6,7 +6,6 @@ import time
 import copy
 
 
-#still need to debug this
 def Action(T,F,beta,coupling,s):
 
     Nx, Nt = T.shape
@@ -27,6 +26,21 @@ def Action(T,F,beta,coupling,s):
     tot *= dt*(s+1)*(s+1)*coupling
 
     return tot - np.log(vol) - 2*s*np.log(bp)
+
+def Hamiltonian(T,F,coupling,s):
+
+    Nx, Nt = T.shape
+
+    CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
+    Ox, Oy, Oz = ST*CF, ST*SF, CT
+    ham = 0.0
+
+    for x in range(Nx):
+        for t in range(Nt):
+
+            ham += coupling*(s+1)*(s+1)*( Ox[x,t]*Ox[(x+1)%Nx,t] + Oz[x,t]*Oz[(x+1)%Nx,t] ) / Nt
+
+    return ham
 
 
 
@@ -111,9 +125,12 @@ def DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dt
         
         obs1, obs2 = SimpleObs(T)
 
+        ham = Hamiltonian(T,F,coupling,s)
+
         if current_step%10 == 0:
             print("ACTION: {} {}".format(act.real,act.imag)) 
             print("ACCEPTANCE: {}".format(accept/current_step))
+            print("HAMILTONIAN: {} {}".format(ham.real, ham.imag))
             print("OBS1: {} {}".format(obs1.real, obs1.imag))
             print("OBS2: {} {}".format(obs2.real, obs2.imag))
     
