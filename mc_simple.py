@@ -5,8 +5,8 @@ import numba as nb
 import time
 import copy
 
-
-def Action(T,F,beta,coupling,s):
+#outputs the action
+def S(T,F,beta,coupling,s):
 
     Nx, Nt = T.shape
     dt = beta/Nt
@@ -26,6 +26,11 @@ def Action(T,F,beta,coupling,s):
     tot *= dt*(s+1)*(s+1)*coupling
 
     return tot - np.log(vol) - 2*s*np.log(bp)
+
+#outputs the derivative of the action
+def dS(T,F,beta,coupling,s):
+
+
 
 def Hamiltonian(T,F,coupling,s):
 
@@ -94,14 +99,14 @@ def DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dt
 
     accept = 0 #acceptance counter
     current_step = 0
-    act = Action(T,F,beta,coupling,s)
+    act = S(T,F,beta,coupling,s)
 
     #first thermalize
     for n in range(ntherm):
 
         current_step += 1
         Tp, Fp = Perturb(T,F,dth,dphi)
-        actp = Action(Tp,Fp,beta,coupling,s)
+        actp = S(Tp,Fp,beta,coupling,s)
         
         if np.random.random() < min([1, np.abs( np.exp( -(actp-act) ) )]):
             T, F, act = Tp, Fp, actp
@@ -115,7 +120,7 @@ def DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dt
 
         current_step += 1
         Tp, Fp = Perturb(T,F,dth,dphi)
-        actp = Action(Tp,Fp,beta,coupling,s)
+        actp = S(Tp,Fp,beta,coupling,s)
         
         if np.random.random() < min([1, np.abs( np.exp( -(actp-act) ) )]):
             T, F, act = Tp, Fp, actp
