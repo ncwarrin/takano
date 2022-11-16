@@ -27,8 +27,15 @@ def S(T,F,beta,coupling,s):
 
     return tot - np.log(vol) - 2*s*np.log(bp)
 
-#outputs the derivative of the action
+#outputs the derivative of the action. this function outputs the entire vector of derivatives
 def dS(T,F,beta,coupling,s):
+
+
+#outputs the entire hessian matrix
+def ddS(T,F,beta,coupling,s):
+
+
+
 
 
 
