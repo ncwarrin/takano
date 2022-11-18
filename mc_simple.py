@@ -30,11 +30,69 @@ def S(T,F,beta,coupling,s):
 #outputs the derivative of the action. this function outputs the entire vector of derivatives
 def dS(T,F,beta,coupling,s):
 
+    Nx, Nt = T.shape
+    dt = beta/Nt
+
+    CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
+    CT2, ST2 = np.cos(T/2), np.sin(T/2)
+
+    grad = np.zeros(2*Nx*Nt, dtype = np.complex128) #represents the theta variables
+
+
+    for x in range(Nx):
+        for t in range(Nt):
+
+            #begin calculation of dS/dth(xt)
+            idx = Nt*x + t
+            tmp = 0
+           
+            tmp += (s+1)*(s+1)*coupling*dt*(
+                   -ST[x,t]*CT[(x-1)%Nx,t] - ST[x,t]*CT[(x+1)%Nx,t]
+                   +CF[x,t]*CF[(x-1)%Nx,t]*CT[x,t]*ST[(x-1)%Nx,t] + CF[(x+1)%Nx,t]*CF[x,t]*ST[(x+1)%Nx,t]*CT[x,t]
+                   )
+
+            num = (-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt] + (1/2)*np.exp( 1j*(F[x,t]-F[x,(t-1)%Nt]) )*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t]-F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s)*num / denom
+            
+            num = (-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t] + (1/2)*np.exp( 1j*(F[x,(t+1)%Nt]-F[x,t]) )*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt]-F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-2*s)*num / denom
+
+            tmp -= 1/np.tan(T[x,t]) #numpy doesn't have cotangent 
+           
+            grad[idx] = tmp    
+    
+            #begin calculation of dS/dphi(xt)
+            idx = Nx*Nt + Nt*x + t
+            tmp = 0
+ 
+
+            tmp += (s+1)*(s+1)*coupling*dt*( 
+                   -SF[x,t]*CF[(x-1)%Nx,t]*ST[x,t]*ST[(x-1)%Nx,t] - CF[(x+1)%Nx,t]*SF[x,t]*ST[(x+1)%Nx,t]*ST[x,t]
+                   )
+
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt] 
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] - np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s*1j)*num / denom
+ 
+
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t] 
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] - np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (2*s*1j)*num / denom
+
+
+            grad[idx] = tmp    
+
+
+    return grad
+
+
 
 #outputs the entire hessian matrix
 def ddS(T,F,beta,coupling,s):
 
-
+    pass
 
 
 
@@ -172,6 +230,10 @@ def main():
     #initalize the fields
     T = np.ones((Nx, Nt), dtype = np.complex128) #represents the theta variables
     F = np.ones((Nx, Nt), dtype = np.complex128) #represents the phi   variables
+
+    tmp = dS(1.3*T,0.7*F,beta,coupling,s)
+    print(tmp)
+    return 0
 
 
     DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dth, dphi, Tflow)
