@@ -73,12 +73,12 @@ def dS(T,F,beta,coupling,s):
                    )
 
             num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt] 
-            denom = CT2[x,t]*CT2[x,(t-1)%Nt] - np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
             tmp += (-2*s*1j)*num / denom
  
 
             num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t] 
-            denom = CT2[x,(t+1)%Nt]*CT2[x,t] - np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
             tmp += (2*s*1j)*num / denom
 
 
@@ -92,8 +92,56 @@ def dS(T,F,beta,coupling,s):
 #outputs the entire hessian matrix
 def ddS(T,F,beta,coupling,s):
 
-    pass
+    Nx, Nt = T.shape
+    dt = beta/Nt
 
+    CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
+    CT2, ST2 = np.cos(T/2), np.sin(T/2)
+
+    hess = np.zeros((2*Nx*Nt,2*Nx*Nt), dtype = np.complex128) #represents the theta variables
+
+    return 0 
+
+
+#outputs the Hff * w = out
+def Hffw(T,F,beta,coupling,s,w):
+
+    Nx, Nt = T.shape
+    dt = beta/Nt
+
+    def idx(x,t):
+        x = (x+Nx)%Nx
+        t = (t+Nt)%Nt
+        return Nt*x + t
+
+
+    CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
+    CT2, ST2 = np.cos(T/2), np.sin(T/2)
+
+    out = np.zeros( Nx*Nt, dtype = np.complex128) #represents the theta variables
+
+    for x in range(Nx):
+        for t in range(Nt):
+
+            tmp = 0
+
+            tmp += (s+1)*(s+1)*coupling*dt*(
+                    -CF[x,t]*CF[(x-1)%Nx,t]*ST[x,t]*ST[(x-1)%Nx,t]*w[idx(x,t)] + ST[(x+1)%Nx,t]*ST[x,t]*SF[(x+1)%Nx,t]*SF[x,t]*w[idx(x+1,t)]
+                   + ST[x,t]*ST[(x-1)%Nx,t]*SF[x,t]*SF[(x-1)%Nx,t]*w[idx(x-1,t)] - ST[(x+1)%Nx,t]*ST[x,t]*CF[(x+1)%Nx,t]*CF[x,t]*w[idx(x,t)]
+                   )
+
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + num
+            tmp += 2*s*( num/denom - (num**2)/(denom**2) )*( w[idx(x,t)] - w[idx(x,t-1)] )
+
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + num
+            tmp -= 2*s*( num/denom - (num**2)/(denom**2) )*( w[idx(x,t+1)] - w[idx(x,t)] )
+
+            out[idx(x,t)] = tmp
+            
+
+    return out 
 
 
 
@@ -231,8 +279,36 @@ def main():
     T = np.ones((Nx, Nt), dtype = np.complex128) #represents the theta variables
     F = np.ones((Nx, Nt), dtype = np.complex128) #represents the phi   variables
 
-    tmp = dS(1.3*T,0.7*F,beta,coupling,s)
-    print(tmp)
+    ind=1
+    for x in range(Nx):
+        for t in range(Nt):
+            T[x,t] = ind
+            ind += 1
+
+    #print(T)
+    #print(F)
+
+    #F = T
+
+    #tmp = S(T,F,beta,coupling,s)
+    #print(tmp)
+
+    #tmp = dS(T,F,beta,coupling,s)
+    #print(tmp)
+
+
+    w = np.ones( Nx*Nt, dtype = np.complex128)
+    ind=1
+    for i in range(len(w)):
+        w[i] = ind
+        ind += 1
+
+    print(w)
+
+    out = Hffw(T,F,beta,coupling,s,w)
+
+    print(out)
+ 
     return 0
 
 
