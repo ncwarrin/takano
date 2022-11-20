@@ -103,6 +103,34 @@ def ddS(T,F,beta,coupling,s):
     return 0 
 
 
+#this gives the action of the submatrix H_{theta, theta} on a vector w
+def Httw(T,F,beta,coupling,s,w):
+
+    Nx, Nt = T.shape
+    dt = beta/Nt
+
+    def idx(x,t):
+        x = (x+Nx)%Nx
+        t = (t+Nt)%Nt
+        return Nt*x + t
+
+
+    CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
+    CT2, ST2 = np.cos(T/2), np.sin(T/2)
+
+    out = np.zeros( Nx*Nt, dtype = np.complex128) #represents the theta variables
+
+    for x in range(Nx):
+        for t in range(Nt):
+
+            tmp = 0
+
+            out[idx(x,t)] = tmp
+            
+
+    return out 
+
+
 #outputs the Hff * w = out
 def Hffw(T,F,beta,coupling,s,w):
 
@@ -288,7 +316,7 @@ def main():
     #print(T)
     #print(F)
 
-    #F = T
+    F = T
 
     #tmp = S(T,F,beta,coupling,s)
     #print(tmp)
