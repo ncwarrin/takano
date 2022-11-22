@@ -89,19 +89,131 @@ def dS(T,F,beta,coupling,s):
 
 
 
-#outputs the entire hessian matrix
-def ddS(T,F,beta,coupling,s):
+
+
+
+
+
+
+#this gives the action of the submatrix H_{theta, theta} on a vector w
+def Httw(T,F,beta,coupling,s,w):
 
     Nx, Nt = T.shape
     dt = beta/Nt
 
+    def idx(x,t):
+        x = (x+Nx)%Nx
+        t = (t+Nt)%Nt
+        return Nt*x + t
+
+
     CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
     CT2, ST2 = np.cos(T/2), np.sin(T/2)
 
-    hess = np.zeros((2*Nx*Nt,2*Nx*Nt), dtype = np.complex128) #represents the theta variables
+    out = np.zeros( Nx*Nt, dtype = np.complex128) #represents the theta variables
 
-    return 0 
+    for x in range(Nx):
+        for t in range(Nt):
 
+            #this term comes from the hamiltonian
+            tmp = 0
+            tmp += -CT[x,t]*CT[(x-1)%Nx,t]*w[idx(x,t)] + ST[(x+1)%Nx,t]*ST[x,t]*w[idx(x+1,t)]  
+            tmp += -CT[x,t]*CT[(x+1)%Nx,t]*w[idx(x,t)] + ST[(x-1)%Nx,t]*ST[x,t]*w[idx(x-1,t)]  
+            tmp += -CF[x,t]*CF[(x-1)%Nx,t]*ST[x,t]*ST[(x-1)%Nx,t]*w[idx(x,t)] + CF[(x+1)%Nx,t]*CF[x,t]*CT[(x+1)%Nx,t]*CT[x,t]*w[idx(x+1,t)]  
+            tmp += CF[x,t]*CF[(x-1)%Nx,t]*CT[x,t]*CT[(x-1)%Nx,t]*w[idx(x-1,t)] - CF[(x+1)%Nx,t]*CF[x,t]*ST[(x+1)%Nx,t]*ST[x,t]*w[idx(x,t)]
+
+            tmp *= (s+1)*(s+1)*dt*coupling
+
+            #begin the first set of 8 terms
+            #term 1 of 8
+            num = (-1/4)*CT2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s) * num / denom * w[idx(x,t)]
+
+            #term 2 of 8
+            num = (1/4)*ST2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-2*s) * num / denom * w[idx(x,t+1)]
+
+            #term 3 of 8
+            num = (-1/4)*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s) * num / denom * w[idx(x,t)]
+
+            #term 4 of 8
+            num = (1/4)*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*CT2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-2*s) * num / denom * w[idx(x,t+1)]
+
+            #term 5 of 8
+            num = ( (-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt] + (1/2)*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*CT2[x,t]*ST2[x,(t-1)%Nt]  ) * ( (-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt] )
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t)]
+
+            #term 6 of 8
+            num = ( (-1/2)*ST2[x,(t+1)%Nt]*CT2[x,t] + (1/2)*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*CT2[x,(t+1)%Nt]*ST2[x,t] ) * ( (-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t] )
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t+1)]
+
+            #term 7 of 8
+            num = ( (-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt] + (1/2)*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*CT2[x,t]*ST2[x,(t-1)%Nt] ) * np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) ) * ( (1/2)*CT2[x,t]*ST2[x,(t-1)%Nt] )
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t)]
+
+            #term 8 of 8
+            num = ( (-1/2)*ST2[x,(t+1)%Nt]*CT2[x,t] + (1/2)*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*CT2[x,(t+1)%Nt]*ST2[x,t] ) * np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) ) * ( (1/2)*ST2[x,(t+1)%Nt]*CT2[x,t] )
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t+1)]
+
+
+
+            #begin the second set of 8 terms
+            #term 1 of 8
+            num = (1/4)*ST2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s) * num / denom * w[idx(x,t-1)]
+
+            #term 2 of 8
+            num = (-1/4)*CT2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-2*s) * num / denom * w[idx(x,t)]
+
+            #term 3 of 8
+            num = (1/4)*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*CT2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s) * num / denom * w[idx(x,t-1)]
+
+            #term 4 of 8
+            num = (-1/4)*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-2*s) * num / denom * w[idx(x,t)]
+
+            #term 5 of 8
+            num = ( (-1/2)*CT2[x,t]*ST2[x,(t-1)%Nt] + (1/2)*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*CT2[x,(t-1)%Nt]  ) * ( (-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt] )
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t-1)]
+
+            #term 6 of 8
+            num = ( (-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t] + (1/2)*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*CT2[x,t] ) * ( (-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t] )
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t)]
+
+            #term 7 of 8
+            num = ( (-1/2)*CT2[x,t]*ST2[x,(t-1)%Nt] + (1/2)*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*CT2[x,(t-1)%Nt] ) * np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) ) * ( (1/2)*CT2[x,t]*ST2[x,(t-1)%Nt] )
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t-1)]
+
+            #term 8 of 8
+            num = ( (-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t] + (1/2)*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*CT2[x,t] ) * np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) ) * ( (1/2)*ST2[x,(t+1)%Nt]*CT2[x,t] )
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(-2*s) * num / (denom**2) * w[idx(x,t)]
+
+            tmp += 1/(ST[x,t]**2)*w[idx(x,t)]
+
+            out[idx(x,t)] = tmp
+            
+
+    return out 
 
 #this gives the action of the submatrix H_{phi, theta} on a vector w
 def Hftw(T,F,beta,coupling,s,w):
@@ -339,6 +451,22 @@ def Hffw(T,F,beta,coupling,s,w):
 
 
 
+#this gives the action of the Hessian on a vector w
+def Hw(T,F,beta,coupling,s,W):
+
+    Nx, Nt = T.shape
+
+    wt = W[:Nx*Nt]
+    wf = W[-Nx*Nt:]
+
+    out = np.zeros( 2*Nx*Nt, dtype = np.complex128) #represents the theta variables
+
+    out[:Nx*Nt]  = Httw(T,F,beta,coupling,s,wt) + Htfw(T,F,beta,coupling,s,wf)
+    out[-Nx*Nt:] = Hftw(T,F,beta,coupling,s,wt) + Hffw(T,F,beta,coupling,s,wf)
+
+    return out
+
+
 def Hamiltonian(T,F,coupling,s):
 
     Nx, Nt = T.shape
@@ -473,16 +601,28 @@ def main():
     T = np.ones((Nx, Nt), dtype = np.complex128) #represents the theta variables
     F = np.ones((Nx, Nt), dtype = np.complex128) #represents the phi   variables
 
-    ind=1
-    for x in range(Nx):
-        for t in range(Nt):
-            T[x,t] = ind
-            ind += 1
+    DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dth, dphi, Tflow)
 
-    #print(T)
-    #print(F)
 
-    F = T
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
+#tests for the action, gradient, and hessian
+#
+#
+    #ind=1
+    #for x in range(Nx):
+    #    for t in range(Nt):
+    #        T[x,t] = ind
+    #        ind += 1
+
+    #F = T
 
     #tmp = S(T,F,beta,coupling,s)
     #print(tmp)
@@ -491,26 +631,25 @@ def main():
     #print(tmp)
 
 
-    w = np.ones( Nx*Nt, dtype = np.complex128)
-    ind=1
-    for i in range(len(w)):
-        w[i] = ind
-        ind += 1
-
-    print(w)
+    #w = np.ones( Nx*Nt, dtype = np.complex128)
+    #ind=1
+    #for i in range(len(w)):
+    #    w[i] = ind
+    #    ind += 1
 
     #out = Hffw(T,F,beta,coupling,s,w)
     #print(out)
  
-    out = Hftw(T,F,beta,coupling,s,w)
-    print(out)
+    #out = Httw(T,F,beta,coupling,s,w)
+    #print(out)
+
+    #W = np.ones( 2*Nx*Nt, dtype = np.complex128)
+    #ind=1
+    #for i in range(len(w)):
+    #    W[i] = ind
+    #    W[i+Nx*Nt] = 2*ind
+    #    ind += 1
+    #out = Hw(T,F,beta,coupling,s,W)
+    #print(out)
 
 
-    return 0
-
-
-    DoTheMonteCarlo(T, F, theory, beta, coupling, s, Nt, Nx, MCsteps, ntherm, dth, dphi, Tflow)
-
-
-if __name__ == "__main__":
-    main()
