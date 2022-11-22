@@ -103,8 +103,8 @@ def ddS(T,F,beta,coupling,s):
     return 0 
 
 
-#this gives the action of the submatrix H_{theta, theta} on a vector w
-def Httw(T,F,beta,coupling,s,w):
+#this gives the action of the submatrix H_{phi, theta} on a vector w
+def Hftw(T,F,beta,coupling,s,w):
 
     Nx, Nt = T.shape
     dt = beta/Nt
@@ -123,13 +123,179 @@ def Httw(T,F,beta,coupling,s,w):
     for x in range(Nx):
         for t in range(Nt):
 
+            #this term comes from the hamiltonian
             tmp = 0
+            tmp += -SF[x,t]*CF[(x-1)%Nx,t]*CT[x,t]*ST[(x-1)%Nx,t]*w[idx(x,t)] - SF[x,t]*CF[(x-1)%Nx,t]*ST[x,t]*CT[(x-1)%Nx,t]*w[idx(x-1,t)]
+            tmp += -CF[(x+1)%Nx,t]*SF[x,t]*CT[(x+1)%Nx,t]*ST[x,t]*w[idx(x+1,t)] - CF[(x+1)%Nx,t]*SF[x,t]*ST[(x+1)%Nx,t]*CT[x,t]*w[idx(x,t)]
+
+            tmp *= (s+1)*(s+1)*dt*coupling
+
+
+            #here are the first six berry phase terms
+            #term 1 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] -F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s*1j) * num / denom * w[idx(x,t)]
+
+            #term 2 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*ST2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] -F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s*1j) * num / denom * w[idx(x,t-1)]
+
+            #term 3 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*(-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 4 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*(-1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t-1)]
+
+            #term 5 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 6 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*ST2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t-1)]
+
+
+
+            #here are the final six berry phase terms
+            #term 1 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*CT2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] -F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (2*s*1j) * num / denom * w[idx(x,t+1)]
+
+            #term 2 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] -F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (2*s*1j) * num / denom * w[idx(x,t)]
+
+            #term 3 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*(-1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t+1)]
+
+            #term 4 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*(-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 5 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*CT2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t+1)]
+
+            #term 6 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t)]
 
             out[idx(x,t)] = tmp
             
 
     return out 
 
+#this gives the action of the submatrix H_{theta, phi} on a vector w
+def Htfw(T,F,beta,coupling,s,w):
+
+    Nx, Nt = T.shape
+    dt = beta/Nt
+
+    def idx(x,t):
+        x = (x+Nx)%Nx
+        t = (t+Nt)%Nt
+        return Nt*x + t
+
+
+    CT, ST, CF, SF = np.cos(T), np.sin(T), np.cos(F), np.sin(F)
+    CT2, ST2 = np.cos(T/2), np.sin(T/2)
+
+    out = np.zeros( Nx*Nt, dtype = np.complex128) #represents the theta variables
+
+    for x in range(Nx):
+        for t in range(Nt):
+
+            #this term comes from the hamiltonian
+            tmp = 0
+            tmp += -SF[x,t]*CF[(x-1)%Nx,t]*CT[x,t]*ST[(x-1)%Nx,t]*w[idx(x,t)] - SF[(x+1)%Nx,t]*CF[x,t]*ST[(x+1)%Nx,t]*CT[x,t]*w[idx(x+1,t)]
+            tmp += -CF[x,t]*SF[(x-1)%Nx,t]*CT[x,t]*ST[(x-1)%Nx,t]*w[idx(x-1,t)] - CF[(x+1)%Nx,t]*SF[x,t]*ST[(x+1)%Nx,t]*CT[x,t]*w[idx(x,t)]
+
+            tmp *= (s+1)*(s+1)*dt*coupling
+
+
+            #here are the first six berry phase terms
+            #term 1 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] -F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-2*s*1j) * num / denom * w[idx(x,t)]
+
+            #term 2 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] -F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-2*s*1j) * num / denom * w[idx(x,t+1)]
+
+            #term 3 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*(-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 4 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*(-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t+1)]
+
+            #term 5 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 6 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(-2*s*1j) * num / (denom**2) * w[idx(x,t+1)]
+
+
+
+            #here are the final six berry phase terms
+            #term 1 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] -F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (2*s*1j) * num / denom * w[idx(x,t-1)]
+
+            #term 2 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] -F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (2*s*1j) * num / denom * w[idx(x,t)]
+
+            #term 3 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*(-1/2)*ST2[x,t]*CT2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t-1)]
+
+            #term 4 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*(-1/2)*CT2[x,(t+1)%Nt]*ST2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 5 of 6
+            num = np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]*np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*(1/2)*ST2[x,(t+1)%Nt]*CT2[x,t]
+            denom = CT2[x,(t+1)%Nt]*CT2[x,t] + np.exp( 1j*(F[x,(t+1)%Nt] - F[x,t]) )*ST2[x,(t+1)%Nt]*ST2[x,t]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t)]
+
+            #term 6 of 6
+            num = np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]*np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*(1/2)*CT2[x,t]*ST2[x,(t-1)%Nt]
+            denom = CT2[x,t]*CT2[x,(t-1)%Nt] + np.exp( 1j*(F[x,t] - F[x,(t-1)%Nt]) )*ST2[x,t]*ST2[x,(t-1)%Nt]
+            tmp += (-1)*(2*s*1j) * num / (denom**2) * w[idx(x,t-1)]
+
+            out[idx(x,t)] = tmp
+            
+
+    return out 
 
 #outputs the Hff * w = out
 def Hffw(T,F,beta,coupling,s,w):
@@ -333,10 +499,13 @@ def main():
 
     print(w)
 
-    out = Hffw(T,F,beta,coupling,s,w)
-
-    print(out)
+    #out = Hffw(T,F,beta,coupling,s,w)
+    #print(out)
  
+    out = Hftw(T,F,beta,coupling,s,w)
+    print(out)
+
+
     return 0
 
 
