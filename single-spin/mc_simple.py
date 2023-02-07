@@ -566,7 +566,7 @@ def Flow(T, F, J, beta, coupling, s, Tflow, NSteps):
             Ttmp, Ftmp, Jtmp = Tp, Fp, Jp
             total_time += dt
         else:
-            print("Encountering stiff configuration; halving dt...")
+            #print("Encountering stiff configuration; halving dt...")
             dt = dt/2
             if dt < 10**(-5):
                 flag = False
@@ -576,12 +576,12 @@ def Flow(T, F, J, beta, coupling, s, Tflow, NSteps):
                 return Ttmp, Ftmp, Jtmp, flag
 
     toc = time.perf_counter()
-    print("Time to flow: %0.4f seconds" %(toc-tic))   
+    #print("Time to flow: %0.4f seconds" %(toc-tic))   
 
 
     Sfin  = S(Ttmp, Ftmp, beta, coupling, s)
     dAction = Sfin - Sinit
-    print("dS along flow =  {} {} i".format(dAction.real, dAction.imag))    
+    #print("dS along flow =  {} {} i".format(dAction.real, dAction.imag))    
 
 
     return Ttmp, Ftmp, Jtmp, flag
