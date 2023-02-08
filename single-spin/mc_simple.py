@@ -8,7 +8,7 @@ import copy
 
 #this global variable counts the number of stiff configurations rejected
 Stiff_Config_Counter = 0
-
+lambdaf = 0.01
 
 #outputs the action
 def S(T,F,beta,coupling,s):
@@ -31,6 +31,21 @@ def S(T,F,beta,coupling,s):
 
     return tot - bp
 
+#outputs the product of overlaps; analog of a fermion determinant and hence the name D
+def D(T,F,beta,coupling,s):
+
+    Nx, Nt = T.shape
+    output = 1.0
+
+    for x in range(Nx):
+        for t in range(Nt):
+
+            output  *= (  np.cos(T[x,(t+1)%Nt]/2)*np.cos(T[x,t]/2)+
+                          np.sin(T[x,(t+1)%Nt]/2)*np.sin(T[x,t]/2)*np.exp(1j*(F[x,(t+1)%Nt]-F[x,t])) 
+                       )**(2.0*s)
+
+
+    return output
 
 
 #outputs the derivative of the action. this function outputs the entire vector of derivatives
@@ -497,6 +512,15 @@ def HJ(T, F, beta, coupling, s, J):
     return out
 
 
+#this advances the jacobian a step with the Tanizaki method
+def dJ(T, F, beta, coupling, s, J):
+
+    d = D(T,F,beta,coupling,s)
+    factor = ( ( np.abs(d)**2 )/( np.abs(d)**2 + lambdaf**(-2) ) )
+
+    term1 = factor*HJ(T, F, beta, coupling, s, J)
+
+
 def SimpleStep(T,F,J,beta,coupling,s,Tflow,NSteps):
     
     if Tflow == 0:
@@ -529,16 +553,53 @@ def RK4Step(T,F,J,beta,coupling,s,dt):
     J3 = HJ(T+dt/2*T2, F+dt/2*F2, beta, coupling, s, J+dt/2*J2)
     J4 = HJ(T+dt/1*T3, F+dt/1*F3, beta, coupling, s, J+dt/1*J3)
 
+    Tout, Fout, Jout = T+dt/6*( T1 + 2*T2 + 2*T3 + T4), F+dt/6*( F1 + 2*F2 + 2*F3 + F4 ), J+dt/6*( J1 + 2*J2 + 2*J3 + J4 )
+
+    return Tout, Fout, Jout
+
+
+#eventually have this flow everything; just trying the flow of points for now
+def RK4StepNoBlowUp(T,F,J,beta,coupling,s,dt):
+    
+    if dt == 0:
+        return T, F, J
+
+    global lambdaf
+    
+    d = D(T,F,beta,coupling,s)
+    factor = ( ( np.abs(d)**2 )/( np.abs(d)**2 + lambdaf**(-2) ) )
+    T1, F1 = factor*np.conj( dS(T,F,beta,coupling,s) )
+
+    d = D(T1,F1,beta,coupling,s)
+    factor = ( ( np.abs(d)**2 )/( np.abs(d)**2 + lambdaf**(-2) ) )
+    T2, F2 = factor*np.conj( dS(T + dt/2*T1,F + dt/2*F1, beta, coupling,s) )
+
+    d = D(T2,F2,beta,coupling,s)
+    factor = ( ( np.abs(d)**2 )/( np.abs(d)**2 + lambdaf**(-2) ) )
+    T3, F3 = factor*np.conj( dS(T + dt/2*T2,F + dt/2*F2, beta, coupling,s) )
+
+    d = D(T3,F3,beta,coupling,s)
+    factor = ( ( np.abs(d)**2 )/( np.abs(d)**2 + lambdaf**(-2) ) )
+    T4, F4 = factor*np.conj( dS(T + dt/1*T3,F + dt/1*F3, beta, coupling,s) )
+
+    #J1 = HJ(T, F, beta, coupling, s, J)
+    #J2 = HJ(T+dt/2*T1, F+dt/2*F1, beta, coupling, s, J+dt/2*J1)
+    #J3 = HJ(T+dt/2*T2, F+dt/2*F2, beta, coupling, s, J+dt/2*J2)
+    #J4 = HJ(T+dt/1*T3, F+dt/1*F3, beta, coupling, s, J+dt/1*J3)
+
     #just doing some bullshit for now so things go fast
-    #J1 = 0*J
-    #J2 = 0*J
-    #J3 = 0*J
-    #J4 = 0*J
+    J1 = 0*J
+    J2 = 0*J
+    J3 = 0*J
+    J4 = 0*J
 
 
     Tout, Fout, Jout = T+dt/6*( T1 + 2*T2 + 2*T3 + T4), F+dt/6*( F1 + 2*F2 + 2*F3 + F4 ), J+dt/6*( J1 + 2*J2 + 2*J3 + J4 )
 
     return Tout, Fout, Jout
+
+
+
 
 def Flow(T, F, J, beta, coupling, s, Tflow, NSteps):
 
@@ -556,7 +617,8 @@ def Flow(T, F, J, beta, coupling, s, Tflow, NSteps):
     while total_time < Tflow:
     
         #take a step
-        Tp, Fp, Jp = RK4Step(Ttmp,Ftmp,Jtmp,beta,coupling,s,dt)
+        #Tp, Fp, Jp = RK4Step(Ttmp,Ftmp,Jtmp,beta,coupling,s,dt)
+        Tp, Fp, Jp = RK4StepNoBlowUp(Ttmp,Ftmp,Jtmp,beta,coupling,s,dt)
 
         #compute action at next location
         Sfin  = S(Tp, Fp, beta, coupling, s)
@@ -585,55 +647,6 @@ def Flow(T, F, J, beta, coupling, s, Tflow, NSteps):
 
 
     return Ttmp, Ftmp, Jtmp, flag
-
-
-
-#def Flow(T, F, J, beta, coupling, s, Tflow, NSteps):
-#
-#
-#    tic = time.perf_counter()
-# 
-#    Ttmp, Ftmp, Jtmp = copy.deepcopy(T), copy.deepcopy(F), copy.deepcopy(J)
-#    
-#    for n in range(NSteps):
-#
-#        Tp, Fp, Jp = RK4Step(Ttmp,Ftmp,Jtmp,beta,coupling,s,Tflow,NSteps)
-#        Ttmp, Ftmp, Jtmp = Tp, Fp, Jp
-#
-#    toc = time.perf_counter()
-#    #print("Time to flow: %0.4f seconds" %(toc-tic))   
-#
-#
-#
-#    Sinit = S(T,F,beta,coupling,s)
-#    Sfin  = S(Ttmp, Ftmp, beta, coupling, s)
-#    dAction = Sfin - Sinit
-#
-#    if dAction.real < 0:
-#
-#        print("Weird config; printing diagnostics...")
-#        #if the action somehow goes down, repeat the flow and show the gradients; should get big i think?
-#        Ttmp, Ftmp, Jtmp = copy.deepcopy(T), copy.deepcopy(F), copy.deepcopy(J)
-#        
-#        for n in range(NSteps):
-#    
-#            Tp, Fp, Jp = RK4Step(Ttmp,Ftmp,Jtmp,beta,coupling,s,Tflow,NSteps)
-#            Ttmp, Ftmp, Jtmp = Tp, Fp, Jp
-#            dT, dF = dS(Ttmp,Ftmp,beta,coupling,s)
-#            print("dT = {}".format(dT))
-#            print("dF = {}".format(dF))
-#           
-#        #print("dAction.imag = {} ".format(dAction.imag))    
-#        #print(T) 
-#        #print(S(T,F,beta,coupling,s))
-#        #print(dS(T,F,beta,coupling,s))
-#
-#
-#
-#
-#    #print("dS along flow =  {} {} i".format(dAction.real, dAction.imag))    
-#
-#    return Ttmp, Ftmp, Jtmp
 
 
 
